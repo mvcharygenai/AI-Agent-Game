@@ -139,6 +139,46 @@ const SHOWDOWN_SCENARIOS: ShowdownScenario[] = [
       ],
     },
   },
+  {
+    id: 'azure_data_platform',
+    title: 'Azure Data Platform Nightly Incident',
+    prompt: 'Our ADF pipeline pl_daily_financial_close failed at 03:00 AM with "Auth & Load Failure". Identify root cause across ADLS Gen 2, Databricks, and Synapse DB, rotate the expired token in Azure Key Vault, and rerun the pipeline.',
+    chatbotResult: {
+      text: 'To resolve this Azure Data Factory error, log in to the Azure Portal, open the Monitor tab in ADF, inspect the Linked Service for Synapse and ADLS Gen 2, generate a new SAS token or Secret in Key Vault, and click "Rerun failed activities" manually.',
+      verdict: 'Generic Manual Instructions (No Cloud Access)',
+      flaws: [
+        'Cannot query Azure Key Vault or check secret expiration dates.',
+        'Unable to inspect ADLS Gen 2 container permissions or Databricks logs.',
+        'Leaves the data engineer to manually perform all 6 troubleshooting steps at 3 AM.',
+      ],
+    },
+    agentResult: {
+      steps: [
+        {
+          thought: 'Inspecting ADF failed run telemetry and Linked Service connection logs.',
+          action: 'trigger_adf_pipeline(pipelineName="pl_daily_financial_close", action="get_run_logs")',
+          observation: 'Error Code 401: Token expired for ADLS Gen 2 endpoint abfss://raw@finlakehouse.',
+        },
+        {
+          thought: 'Retrieving freshly rotated SAS token from Azure Key Vault HSM store.',
+          action: 'get_keyvault_secret(vaultName="kv-enterprise-prod", secretName="adls-access-token")',
+          observation: 'Secret Bearer_tok_adls_7391_sec fetched from Azure Key Vault.',
+        },
+        {
+          thought: 'Updating ADF linked service with Key Vault secret reference and re-triggering Databricks Spark ingestion & Synapse DW load.',
+          action: 'trigger_adf_pipeline(pipelineName="pl_daily_financial_close", parameters={"authSecret": "kv-enterprise-prod/adls-access-token"})',
+          observation: 'ADF Pipeline Succeeded: 1.2M records transformed in Databricks and published to Synapse DB.',
+        },
+      ],
+      finalOutput: 'Root cause identified: expired ADLS token in ADF linked service. Rotated secret via Azure Key Vault, re-triggered ADF pipeline, and verified Synapse DB table parity.',
+      verdict: 'End-to-End Enterprise Cloud Incident Remediation',
+      strengths: [
+        'Directly inspected ADF failure telemetry across cloud services.',
+        'Secured and applied credentials via Azure Key Vault without exposure.',
+        'Automatically re-ran Databricks and Synapse workloads without human wake-up call.',
+      ],
+    },
+  },
 ];
 
 export const AgentVsChatbotView: React.FC = () => {

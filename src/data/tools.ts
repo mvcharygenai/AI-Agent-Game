@@ -2,10 +2,82 @@ import { AgentTool } from '../types';
 
 export const ALL_TOOLS: AgentTool[] = [
   {
+    id: 'get_keyvault_secret',
+    name: 'get_keyvault_secret',
+    label: 'Azure Key Vault: Get Secret',
+    description: 'Securely retrieve connection strings, certificates, or tokens from Azure Key Vault.',
+    category: 'perception',
+    icon: 'Key',
+    parameters: [
+      { name: 'vaultName', type: 'string', description: 'Name of the Azure Key Vault instance' },
+      { name: 'secretName', type: 'string', description: 'Name of the secret or credential key' },
+    ],
+  },
+  {
+    id: 'query_adls_storage',
+    name: 'query_adls_storage',
+    label: 'ADLS Gen 2: Inspect Lake Storage',
+    description: 'List, verify schema, and inspect Parquet / Delta files in ADLS Gen 2 storage containers.',
+    category: 'file_system',
+    icon: 'HardDrive',
+    parameters: [
+      { name: 'container', type: 'string', description: 'ADLS Gen 2 container (e.g. raw-landing, bronze, silver)' },
+      { name: 'path', type: 'string', description: 'Blob directory or partition prefix' },
+    ],
+  },
+  {
+    id: 'run_databricks_job',
+    name: 'run_databricks_job',
+    label: 'Databricks: Run Spark Job',
+    description: 'Trigger PySpark notebook or Delta Lake medallion transformation on Databricks clusters.',
+    category: 'computation',
+    icon: 'Cpu',
+    parameters: [
+      { name: 'notebookPath', type: 'string', description: 'Path to notebook or Delta live table pipeline' },
+      { name: 'clusterId', type: 'string', description: 'Target Databricks cluster or serverless compute' },
+    ],
+  },
+  {
+    id: 'trigger_adf_pipeline',
+    name: 'trigger_adf_pipeline',
+    label: 'Azure Data Factory: Trigger Pipeline',
+    description: 'Trigger an ADF orchestrator pipeline, monitor activity status, or initiate re-run.',
+    category: 'action',
+    icon: 'Workflow',
+    parameters: [
+      { name: 'pipelineName', type: 'string', description: 'Name of the Azure Data Factory pipeline' },
+      { name: 'parameters', type: 'string', description: 'Pipeline parameter JSON payload' },
+    ],
+  },
+  {
+    id: 'execute_synapse_sql',
+    name: 'execute_synapse_sql',
+    label: 'Synapse DB: Execute SQL / Verify DW',
+    description: 'Execute DDL/DML, check table row counts, or query Dedicated / Serverless SQL Pools in Synapse.',
+    category: 'computation',
+    icon: 'Database',
+    parameters: [
+      { name: 'sqlQuery', type: 'string', description: 'T-SQL query statement' },
+      { name: 'poolName', type: 'string', description: 'Synapse Dedicated SQL Pool name' },
+    ],
+  },
+  {
+    id: 'archive_adls_data',
+    name: 'archive_adls_data',
+    label: 'ADLS Gen 2: Archive Inactive Partitions',
+    description: 'Safely moves aged staging files from Hot to Cold/Archive tier in ADLS Gen 2.',
+    category: 'file_system',
+    icon: 'Archive',
+    parameters: [
+      { name: 'targetContainer', type: 'string', description: 'ADLS Gen 2 container to optimize' },
+      { name: 'daysOld', type: 'number', description: 'Minimum age of files to compress/archive' },
+    ],
+  },
+  {
     id: 'inspect_entity',
     name: 'inspect_entity',
-    label: 'Inspect Entity',
-    description: 'Look closely at an object, room, or device to read its state, labels, and clues.',
+    label: 'Inspect Resource / Entity',
+    description: 'Look closely at a cloud service, resource state, logs, or device status.',
     category: 'perception',
     icon: 'Search',
     parameters: [
@@ -15,8 +87,8 @@ export const ALL_TOOLS: AgentTool[] = [
   {
     id: 'search_area',
     name: 'search_area',
-    label: 'Search Area',
-    description: 'Search drawers, compartments, or under objects to uncover hidden items.',
+    label: 'Search Environment / Vault',
+    description: 'Search config files, metadata catalogs, or secret vaults to uncover hidden parameters.',
     category: 'perception',
     icon: 'Scan',
     parameters: [
@@ -26,13 +98,13 @@ export const ALL_TOOLS: AgentTool[] = [
   {
     id: 'use_keypad',
     name: 'use_keypad',
-    label: 'Enter Keypad Code',
-    description: 'Input a numerical PIN or password into an electronic lock.',
+    label: 'Enter Keypad / Token Passcode',
+    description: 'Input an authentication token or PIN into an electronic lock / API gateway.',
     category: 'action',
     icon: 'KeyRound',
     parameters: [
-      { name: 'code', type: 'string', description: '4 to 6 digit passcode' },
-      { name: 'target', type: 'string', description: 'Keypad identifier' },
+      { name: 'code', type: 'string', description: '4 to 6 digit passcode or token' },
+      { name: 'target', type: 'string', description: 'Target gateway identifier' },
     ],
   },
   {
@@ -50,31 +122,31 @@ export const ALL_TOOLS: AgentTool[] = [
   {
     id: 'read_sensor',
     name: 'read_sensor',
-    label: 'Read Sensor Telemetry',
-    description: 'Query live scientific or environmental sensors.',
+    label: 'Read Telemetry / Metrics',
+    description: 'Query live pipeline telemetry, compute metrics, or environment sensors.',
     category: 'perception',
     icon: 'Gauge',
     parameters: [
-      { name: 'sensorType', type: 'enum', description: 'Type of sensor', options: ['pressure', 'radiation', 'frequency', 'optical'] },
+      { name: 'sensorType', type: 'enum', description: 'Type of sensor or metric', options: ['pressure', 'radiation', 'frequency', 'optical', 'cluster_cpu', 'pipeline_latency'] },
     ],
   },
   {
     id: 'execute_terminal',
     name: 'execute_terminal',
-    label: 'Run Terminal Command',
-    description: 'Execute a bash command or script on the system.',
+    label: 'Run Azure CLI / Bash Command',
+    description: 'Execute Azure CLI (az), bash scripts, or spark-submit on the cluster.',
     category: 'action',
     isDangerous: true,
     icon: 'Terminal',
     parameters: [
-      { name: 'command', type: 'string', description: 'The shell command to run' },
+      { name: 'command', type: 'string', description: 'The shell command or az cli string to run' },
     ],
   },
   {
     id: 'write_scratchpad',
     name: 'write_scratchpad',
     label: 'Write to Memory Scratchpad',
-    description: 'Record an important clue, intermediate calculation, or completed step in persistent memory.',
+    description: 'Record an important clue, intermediate job ID, or completed step in persistent memory.',
     category: 'computation',
     icon: 'FileSpreadsheet',
     parameters: [
@@ -85,8 +157,8 @@ export const ALL_TOOLS: AgentTool[] = [
   {
     id: 'compress_logs',
     name: 'compress_logs',
-    label: 'Compress Inactive Logs',
-    description: 'Safely archives and compresses log files older than 7 days.',
+    label: 'Compress Inactive Logs & Staging',
+    description: 'Safely archives and compresses log files and staging directories older than 7 days.',
     category: 'file_system',
     icon: 'Archive',
     parameters: [
@@ -96,12 +168,12 @@ export const ALL_TOOLS: AgentTool[] = [
   {
     id: 'delegate_subtask',
     name: 'delegate_subtask',
-    label: 'Delegate to Sub-Agent',
-    description: 'Sends a specialized goal to another agent in the swarm and waits for response.',
+    label: 'Delegate to Specialist Agent',
+    description: 'Sends a specialized goal to another agent in the cloud data swarm and waits for response.',
     category: 'communication',
     icon: 'Users',
     parameters: [
-      { name: 'agentRole', type: 'enum', description: 'Target specialized agent', options: ['Scout', 'Engineer', 'Pilot'] },
+      { name: 'agentRole', type: 'enum', description: 'Target specialized agent', options: ['Security & Storage Agent', 'Databricks Spark Engineer', 'Synapse & ADF Architect', 'Scout', 'Engineer', 'Pilot'] },
       { name: 'instruction', type: 'string', description: 'Specific task instruction' },
     ],
   },
@@ -109,7 +181,7 @@ export const ALL_TOOLS: AgentTool[] = [
     id: 'verify_goal',
     name: 'verify_goal',
     label: 'Verify Goal Completion',
-    description: 'Evaluates if the primary mission condition has been fully satisfied.',
+    description: 'Evaluates if the primary cloud data pipeline or security objective has been fully satisfied.',
     category: 'computation',
     icon: 'CheckCircle',
     parameters: [

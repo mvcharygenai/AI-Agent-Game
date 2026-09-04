@@ -1,6 +1,6 @@
 {
   "name": "AI Agent Game",
-  "description": "An interactive game and simulator designed to help anyone understand how AI agents work through goals, perception, reasoning, memory, and tools.",
+  "description": "An interactive game and simulator demonstrating AI agents across Azure Data Factory, Databricks, Key Vault, ADLS Gen 2, and Synapse DB through goals, perception, reasoning, memory, and tools.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

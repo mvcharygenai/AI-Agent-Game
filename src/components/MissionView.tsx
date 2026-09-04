@@ -23,6 +23,8 @@ import {
   ChevronRight,
   Sparkles,
   Zap,
+  HardDrive,
+  Workflow,
 } from 'lucide-react';
 
 interface MissionViewProps {
@@ -138,7 +140,7 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
     }
   };
 
-  // --- MISSION 1 LOGIC: Perception & Tools ---
+  // --- MISSION 1 LOGIC: Perception & Tools (Key Vault & ADLS Gen 2) ---
   const handleMission1Step = () => {
     const stepNum = currentStepIndex + 1;
     setCurrentStepIndex(stepNum);
@@ -149,16 +151,17 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m1_s1`,
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
-        thought: 'I need to unlock the vault, but I do not know the code. Let me inspect the room for clues.',
+        thought:
+          'Target ADLS Gen 2 storage container requires verified credentials. Azure Key Vault (kv-enterprise-prod) holds the credential secret. Inspecting Key Vault RBAC permissions...',
         toolCall: {
           toolId: 'inspect_entity',
           toolName: 'inspect_entity',
-          args: { targetId: 'desk' },
+          args: { targetId: 'azure_key_vault' },
         },
         observation: {
-          raw: 'Executive Desk has a keyboard, locked laptop, and some papers.',
+          raw: 'Azure Key Vault (kv-enterprise-prod) accessible via Managed Identity. Contains HSM-backed secret "adls-access-token".',
         },
-        reflection: 'The desk might contain credentials. Let me search beneath and around the desk accessories.',
+        reflection: 'I have authorized read access. Now retrieving the secret payload using get_keyvault_secret.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
@@ -169,22 +172,26 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m1_s2`,
         stepNumber: stepNum,
         phase: 'OBSERVING',
-        thought: 'Searching drawers and keyboard area for written PIN codes.',
+        thought: 'Retrieving ADLS Gen 2 SAS token from Key Vault secret store.',
         toolCall: {
-          toolId: 'search_area',
-          toolName: 'search_area',
-          args: { location: 'under_keyboard' },
+          toolId: 'get_keyvault_secret',
+          toolName: 'get_keyvault_secret',
+          args: { vaultName: 'kv-enterprise-prod', secretName: 'adls-access-token' },
         },
         observation: {
-          raw: 'Discovered hidden yellow sticky note: "Vault PIN: 7391"!',
+          raw: 'SUCCESS: Key Vault returned secret token "Bearer_tok_adls_7391_sec". Expiry: 24h.',
         },
-        reflection: 'I now have the exact passcode: 7391. I should enter this on the vault keypad.',
+        reflection: 'I now possess the cryptographic bearer token (7391). Calling ADLS Gen 2 API to authenticate and mount raw-landing-zone.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
       // Update entities visually
       setEntities((prev) =>
-        prev.map((e) => (e.id === 'desk' ? { ...e, statusText: 'Found sticky note with PIN: 7391' } : e))
+        prev.map((e) =>
+          e.id === 'azure_key_vault'
+            ? { ...e, statusText: 'Key Vault: Secret verified (Bearer_tok_adls_7391_sec)' }
+            : e
+        )
       );
     } else if (stepNum === 3) {
       setCurrentPhase('EXECUTING_TOOL');
@@ -192,22 +199,24 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m1_s3`,
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
-        thought: 'Entering the retrieved code 7391 into the vault digital keypad.',
+        thought: 'Authenticating ADLS Gen 2 storage endpoint with token 7391 to mount raw-landing-zone.',
         toolCall: {
-          toolId: 'use_keypad',
-          toolName: 'use_keypad',
-          args: { target: 'vault_door', code: '7391' },
+          toolId: 'query_adls_storage',
+          toolName: 'query_adls_storage',
+          args: { container: 'raw-landing-zone', path: 'abfss://raw-landing-zone@adlsfinprod' },
         },
         observation: {
-          raw: 'Keypad chimed chime of success! Electronic bolts retracted. Vault is now OPEN.',
+          raw: '200 OK: Authentication accepted! Mounted ADLS Gen 2 container abfss://raw-landing-zone@adlsfinprod. Found 48,200 parquet records.',
         },
-        reflection: 'The door opened! I can now verify goal completion.',
+        reflection: 'Storage is unlocked and accessible. Ready to verify goal completion.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
       setEntities((prev) =>
         prev.map((e) =>
-          e.id === 'vault_door' ? { ...e, isLocked: false, statusText: 'UNLOCKED: Encryption Drive Retrieved!' } : e
+          e.id === 'adls_storage'
+            ? { ...e, isLocked: false, statusText: 'MOUNTED & AUTHENTICATED: 48,200 Parquet records accessible!' }
+            : e
         )
       );
     } else if (stepNum >= 4) {
@@ -216,16 +225,16 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m1_s4`,
         stepNumber: stepNum,
         phase: 'SUCCESS',
-        thought: 'The master encryption drive is in hand. Mission objective achieved.',
+        thought: 'Secure connection established between Azure Key Vault and ADLS Gen 2 without hardcoding secrets. Mission objective achieved.',
         toolCall: {
           toolId: 'verify_goal',
           toolName: 'verify_goal',
-          args: { evidence: 'Vault unlocked with code 7391; master encryption drive secured.' },
+          args: { evidence: 'Retrieved verified token from Key Vault kv-enterprise-prod and mounted ADLS Gen 2 raw-landing-zone.' },
         },
         observation: {
-          raw: 'GOAL VERIFIED: 100% Success.',
+          raw: 'GOAL VERIFIED: 100% Cloud Security & Storage Success.',
         },
-        reflection: 'Mission accomplished autonomously using perception and tool calling!',
+        reflection: 'Mission accomplished autonomously using cloud perception and secure tool calling!',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
@@ -234,7 +243,7 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
     }
   };
 
-  // --- MISSION 2 LOGIC: Memory & Scratchpad ---
+  // --- MISSION 2 LOGIC: Memory & Scratchpad (ADLS Gen 2 -> Databricks -> ADF -> Synapse DB) ---
   const handleMission2Step = () => {
     const stepNum = currentStepIndex + 1;
     setCurrentStepIndex(stepNum);
@@ -246,7 +255,7 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         setIsRunning(false);
         setCurrentPhase('FAILED');
         setMissionFailed(
-          'AMNESIA LOOP DETECTED! Because Memory is turned OFF, the agent forgets it already checked the pressure and repeats Step 1 forever. Turn on "SCRATCHPAD" to fix this!'
+          'AMNESIA LOOP DETECTED! Because Memory is turned OFF, the agent forgets it already verified the ADLS Gen 2 bronze dataset and queries it over and over. Turn on "SCRATCHPAD" to fix this!'
         );
         return;
       }
@@ -255,16 +264,16 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m2_loop_${stepNum}`,
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
-        thought: 'I do not remember if I checked the chamber pressure yet. Let me read the pressure sensor.',
+        thought: 'I do not remember if I inspected the landing zone in ADLS Gen 2 yet. Querying ADLS container...',
         toolCall: {
-          toolId: 'read_sensor',
-          toolName: 'read_sensor',
-          args: { sensorType: 'pressure' },
+          toolId: 'query_adls_storage',
+          toolName: 'query_adls_storage',
+          args: { container: 'bronze', path: 'daily_sales.parquet' },
         },
         observation: {
-          raw: 'Pressure sensor reading: 48.2 PSI (Normal).',
+          raw: 'ADLS Gen 2: daily_sales.parquet verified (48,200 records).',
         },
-        reflection: 'Pressure is 48.2 PSI. (Without scratchpad, this fact will be lost on the next tick!)',
+        reflection: 'Found 48,200 records. (Without scratchpad, this state will be lost on the next tick!)',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, loopLog]);
@@ -279,19 +288,19 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m2_s1`,
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
-        thought: 'Step 1/3: Reading Chamber Pressure and writing result to persistent memory scratchpad.',
+        thought: 'Step 1/3: Verifying incoming batch in ADLS Gen 2 (abfss://bronze@lakehouse/daily_sales.parquet) and recording batch count in scratchpad.',
         toolCall: {
-          toolId: 'read_sensor',
-          toolName: 'read_sensor',
-          args: { sensorType: 'pressure' },
+          toolId: 'query_adls_storage',
+          toolName: 'query_adls_storage',
+          args: { container: 'bronze', path: 'daily_sales.parquet' },
         },
         observation: {
-          raw: 'Pressure is 48.2 PSI (Optimal).',
+          raw: 'ADLS Gen 2 bronze batch verified: 48,200 Parquet records. Checksum: SHA-256 valid.',
         },
-        reflection: 'Saved { pressure: "48.2 PSI", step1_done: true } to working scratchpad.',
+        reflection: 'Saved { adls_bronze: "48,200 records", step1_done: true } to working scratchpad.',
         timestamp: new Date().toLocaleTimeString(),
       };
-      setScratchpadNotes((prev) => ({ ...prev, pressure: '48.2 PSI', step1: 'COMPLETED' }));
+      setScratchpadNotes((prev) => ({ ...prev, adls_bronze: '48,200 records', step1: 'COMPLETED' }));
       setStepLogs((prev) => [...prev, log]);
     } else if (stepNum === 2) {
       setCurrentPhase('EXECUTING_TOOL');
@@ -300,21 +309,21 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
         thought:
-          'Consulting scratchpad: Step 1 is done. Now executing Step 2/3: Calibrate Frequency Modulator from 98 Hz to 142 Hz.',
+          'Consulting scratchpad: Step 1 complete. Now executing Step 2/3: Trigger Databricks Spark job /Shared/ETL_Bronze_To_Silver_Delta on cluster etl-medallion-runner.',
         toolCall: {
-          toolId: 'toggle_switch',
-          toolName: 'toggle_switch',
-          args: { switchId: 'frequency_tuner', state: '142_HZ' },
+          toolId: 'run_databricks_job',
+          toolName: 'run_databricks_job',
+          args: { notebookPath: '/Shared/ETL_Bronze_To_Silver_Delta', clusterId: 'etl-medallion-runner' },
         },
         observation: {
-          raw: 'Harmonic resonance locked at 142 Hz. Radiation stabilized.',
+          raw: 'Databricks Job #db_9410 completed in 42s. PySpark Delta MERGE upserted 48,200 records into Silver Delta table (142 partitions created).',
         },
-        reflection: 'Saved { frequency: "142 Hz", step2_done: true } to working scratchpad.',
+        reflection: 'Saved { databricks_silver: "142 partitions", step2_done: true } to working scratchpad.',
         timestamp: new Date().toLocaleTimeString(),
       };
-      setScratchpadNotes((prev) => ({ ...prev, frequency: '142 Hz', step2: 'COMPLETED' }));
+      setScratchpadNotes((prev) => ({ ...prev, databricks_silver: '142 partitions', step2: 'COMPLETED' }));
       setEntities((prev) =>
-        prev.map((e) => (e.id === 'frequency_tuner' ? { ...e, statusText: 'LOCKED: 142 Hz (Harmonic Stable)' } : e))
+        prev.map((e) => (e.id === 'databricks_spark' ? { ...e, statusText: 'JOB SUCCEEDED: 48,200 rows merged to Silver Delta table (142 partitions)' } : e))
       );
       setStepLogs((prev) => [...prev, log]);
     } else if (stepNum === 3) {
@@ -324,20 +333,24 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
         thought:
-          'Consulting scratchpad: Both pressure and frequency criteria verified. Final Step 3/3: Engage Magnetic Coolant Valve.',
+          'Consulting scratchpad: Steps 1 & 2 verified. Final Step 3/3: Trigger Azure Data Factory pipeline pl_load_synapse_dw to publish Silver Delta to Synapse DB Dedicated SQL Pool.',
         toolCall: {
-          toolId: 'toggle_switch',
-          toolName: 'toggle_switch',
-          args: { switchId: 'safety_valve', state: 'OPEN' },
+          toolId: 'trigger_adf_pipeline',
+          toolName: 'trigger_adf_pipeline',
+          args: { pipelineName: 'pl_load_synapse_dw', parameters: '{"targetPool": "fact_daily_sales"}' },
         },
         observation: {
-          raw: 'Magnetic Coolant Valve engaged! Coolant circulating. Core temperature decreasing to baseline.',
+          raw: 'ADF Pipeline Run #adf_run_8812 finished: Succeeded. Copy activity loaded 48,200 rows into Synapse DB fact_daily_sales. DWU usage: 12%.',
         },
-        reflection: 'All 3 stages complete in flawless sequence. Ready to verify.',
+        reflection: 'All 3 Medallion stages executed in flawless sequence: ADLS Gen 2 -> Databricks -> ADF -> Synapse DB.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setEntities((prev) =>
-        prev.map((e) => (e.id === 'safety_valve' ? { ...e, statusText: 'OPEN & CIRCULATING (Core Stabilized)' } : e))
+        prev.map((e) => {
+          if (e.id === 'adf_pipeline') return { ...e, statusText: 'PIPELINE COMPLETED: Succeeded (Run #adf_run_8812)' };
+          if (e.id === 'synapse_dw') return { ...e, statusText: 'LOADED & VERIFIED: 48,200 rows indexed in Dedicated SQL Pool!' };
+          return e;
+        })
       );
       setStepLogs((prev) => [...prev, log]);
     } else if (stepNum >= 4) {
@@ -346,16 +359,16 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m2_s4`,
         stepNumber: stepNum,
         phase: 'SUCCESS',
-        thought: 'Reactor core is completely stabilized. Mission successful!',
+        thought: 'End-to-end Medallion data architecture loaded and reconciled across ADLS Gen 2, Databricks, ADF, and Synapse DB. Mission successful!',
         toolCall: {
           toolId: 'verify_goal',
           toolName: 'verify_goal',
-          args: { evidence: 'Sequence executed via Scratchpad: Pressure -> Frequency 142Hz -> Safety Valve.' },
+          args: { evidence: 'Sequence executed via Scratchpad: ADLS Bronze (48,200) -> Databricks Silver Delta -> ADF Pipeline -> Synapse DB.' },
         },
         observation: {
-          raw: 'REACTOR STATUS: NORMAL (Meltdown averted).',
+          raw: 'MEDALLION PIPELINE STATUS: 100% Consistent and ACID Compliant.',
         },
-        reflection: 'Persistent memory prevented infinite loops and ensured sequential precision.',
+        reflection: 'Persistent memory prevented infinite loops and ensured sequential precision across cloud services.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
@@ -364,18 +377,18 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
     }
   };
 
-  // --- MISSION 3 LOGIC: Rogue Action & Human-in-the-Loop ---
+  // --- MISSION 3 LOGIC: Rogue Synapse Drop & Human-in-the-Loop ---
   const handleMission3Step = () => {
     const stepNum = currentStepIndex + 1;
     setCurrentStepIndex(stepNum);
 
     if (stepNum === 1) {
-      // Step 1: Agent considers a rogue, reckless shortcut: deleting the huge backup
+      // Step 1: Agent considers a rogue, reckless shortcut: dropping the Synapse DB historical table
       if (humanApprovalEnabled) {
         setCurrentPhase('WAITING_APPROVAL');
         setPendingApproval({
           toolName: 'execute_terminal',
-          args: { command: 'rm -rf /srv/production/backup_archive.tar.gz' },
+          args: { command: 'az synapse sql query --pool fact_financial_transactions_historical --query "DROP TABLE synapse.fact_financial_transactions_historical;"' },
           stepIndex: stepNum,
         });
         setIsRunning(false);
@@ -385,43 +398,43 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
           stepNumber: stepNum,
           phase: 'WAITING_APPROVAL',
           thought:
-            'I need to free 200GB quickly. /srv/production/backup_archive.tar.gz is 500GB! Deleting it will instantly solve the goal. Requesting execution...',
+            'Synapse DB is at 98% DWU quota! Table fact_financial_transactions_historical is 500 GB. Running DROP TABLE will instantly free 500 GB and satisfy the quota alert. Requesting execution...',
           toolCall: {
             toolId: 'execute_terminal',
             toolName: 'execute_terminal',
-            args: { command: 'rm -rf /srv/production/backup_archive.tar.gz' },
+            args: { command: 'az synapse sql query --pool fact_financial_transactions_historical --query "DROP TABLE synapse.fact_financial_transactions_historical;"' },
           },
           observation: {
-            raw: '⚠️ PAUSED: High-risk action requires Human-in-the-Loop approval.',
+            raw: '⚠️ PAUSED: High-risk DDL action detected! Human-in-the-Loop approval required to execute DROP TABLE on Synapse DB.',
           },
-          reflection: 'Waiting for Human Supervisor authorization...',
+          reflection: 'Waiting for Human Supervisor authorization before executing irreversible drop...',
           timestamp: new Date().toLocaleTimeString(),
         };
         setStepLogs((prev) => [...prev, log]);
       } else {
-        // Without approval: Agent destroys production!
+        // Without approval: Agent destroys Synapse compliance table!
         setCurrentPhase('FAILED');
         setIsRunning(false);
         const log: AgentStepLog = {
           id: `m3_catastrophe`,
           stepNumber: stepNum,
           phase: 'FAILED',
-          thought: 'Executing rm -rf /srv/production/backup_archive.tar.gz...',
+          thought: 'Executing DROP TABLE synapse.fact_financial_transactions_historical...',
           toolCall: {
             toolId: 'execute_terminal',
             toolName: 'execute_terminal',
-            args: { command: 'rm -rf /srv/production/backup_archive.tar.gz' },
+            args: { command: 'az synapse sql query --query "DROP TABLE synapse.fact_financial_transactions_historical;"' },
           },
           observation: {
-            raw: 'CRITICAL FAILURE: Customer transaction database DELETED! System in catastrophic outage.',
+            raw: 'CRITICAL FAILURE: 7 years of SEC regulatory financial history DELETED! Severe data loss and compliance breach.',
             isError: true,
           },
-          reflection: 'Unchecked autonomy caused catastrophic loss. Human guardrails were missing!',
+          reflection: 'Unchecked autonomy caused catastrophic loss of Synapse warehouse data. Human guardrails were missing!',
           timestamp: new Date().toLocaleTimeString(),
         };
         setStepLogs((prev) => [...prev, log]);
         setMissionFailed(
-          'Catastrophe! The agent deleted the production database because it had no Human-in-the-Loop guardrails! Enable Human Approval to intercept this.'
+          'Catastrophe! The agent dropped the Synapse DB production table because it had no Human-in-the-Loop guardrails! Enable Human Approval to intercept this.'
         );
       }
     } else if (stepNum === 2) {
@@ -433,21 +446,21 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
         thought:
-          'Human supervisor rejected deleting production backups. I must look for a safe alternative. Found /var/log/nginx/old_access_logs (260 GB). I will compress and archive it!',
+          'Human supervisor REJECTED dropping Synapse DB historical table. I must find a safe, non-destructive storage optimization. Inspecting ADLS Gen 2 staging... Found 260 GB of uncompressed 6-month-old ingestion logs in abfss://staging@datalake/uncompressed_logs/. Calling archive_adls_data!',
         toolCall: {
-          toolId: 'compress_logs',
-          toolName: 'compress_logs',
-          args: { targetDirectory: '/var/log/nginx/old_access_logs/' },
+          toolId: 'archive_adls_data',
+          toolName: 'archive_adls_data',
+          args: { targetContainer: 'staging', daysOld: 180 },
         },
         observation: {
-          raw: 'Compressed 260 GB of old logs down to 18 GB. Freed 242 GB of storage! Backups untouched.',
+          raw: 'Compressed 260 GB of staging blobs to GZIP archive in Cold Tier. Freed 242 GB from active capacity. Synapse compliance tables 100% intact!',
         },
-        reflection: 'Objective met safely without endangering production data.',
+        reflection: 'Storage quota resolved safely without endangering Synapse DB compliance records.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setEntities((prev) =>
         prev.map((e) =>
-          e.id === 'disk_old_logs' ? { ...e, statusText: 'COMPRESSED: 242 GB freed safely!' } : e
+          e.id === 'adls_staging_blobs' ? { ...e, statusText: 'ARCHIVED & COMPRESSED: 242 GB storage quota reclaimed safely in Cold Tier!' } : e
         )
       );
       setStepLogs((prev) => [...prev, log]);
@@ -457,14 +470,14 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m3_s3`,
         stepNumber: stepNum,
         phase: 'SUCCESS',
-        thought: 'Target: 200GB freed. Actual: 242GB freed safely. Backups intact.',
+        thought: 'Target: Free storage quota. Actual: 242 GB freed safely via ADLS Gen 2 archival. Synapse DB fully intact.',
         toolCall: {
           toolId: 'verify_goal',
           toolName: 'verify_goal',
-          args: { evidence: 'Freed 242GB via log compression. Zero downtime.' },
+          args: { evidence: 'Freed 242 GB via ADLS staging archival. Zero downtime and zero data loss on Synapse DB.' },
         },
         observation: {
-          raw: 'STORAGE RESTORED: Alert cleared (Disk at 64%).',
+          raw: 'STORAGE RESTORED: Alert cleared (Synapse DW quota down to 54%).',
         },
         reflection: 'Human-in-the-loop prevented disaster and guided safe agent resolution!',
         timestamp: new Date().toLocaleTimeString(),
@@ -475,7 +488,7 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
     }
   };
 
-  // --- MISSION 4 LOGIC: Error Recovery & ReAct Reflection ---
+  // --- MISSION 4 LOGIC: Databricks Spot Eviction & ADF Self-Healing ---
   const handleMission4Step = () => {
     const stepNum = currentStepIndex + 1;
     setCurrentStepIndex(stepNum);
@@ -486,17 +499,17 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m4_s1`,
         stepNumber: stepNum,
         phase: 'OBSERVING',
-        thought: 'Attempting to transmit telemetry via the primary high-gain satellite dish.',
+        thought: 'Azure Data Factory triggering Databricks PySpark aggregation notebook on Spot cluster spot-etl-worker-01.',
         toolCall: {
-          toolId: 'execute_terminal',
-          toolName: 'execute_terminal',
-          args: { command: 'transmit_satellite --channel=ku_band' },
+          toolId: 'run_databricks_job',
+          toolName: 'run_databricks_job',
+          args: { notebookPath: '/Shared/IoT_Telemetry_Ingest', clusterId: 'spot-etl-worker-01' },
         },
         observation: {
-          raw: 'ERROR 503 Service Unavailable: Satellite Dish motor misaligned due to 80mph sandstorm.',
+          raw: 'ERROR 503 Service Unavailable: Azure Spot Instance preempted/evicted mid-shuffle. Spark driver lost.',
           isError: true,
         },
-        reflection: 'Primary route failed. An ordinary script would crash here. I need to reflect and adapt.',
+        reflection: 'Primary Spot worker evicted. A static ADF script would fail here. Applying ReAct reasoning: Fallback compute pool ondemand-compute-pool is available. Self-healing failover required.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
@@ -508,22 +521,24 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
         thought:
-          'REFLECTING ON ERROR: The primary satellite is disabled by wind, but the Sub-Optical Infrared Transceiver uses high-frequency laser that penetrates sandstorms. Switching to laser transceiver!',
+          'REFLECTING ON ERROR: Spot compute was terminated, but the high-priority on-demand pool is idle. Routing Databricks job to ondemand-compute-pool with cluster auto-scaler!',
         toolCall: {
-          toolId: 'execute_terminal',
-          toolName: 'execute_terminal',
-          args: { command: 'transmit_laser --channel=infrared_beam' },
+          toolId: 'run_databricks_job',
+          toolName: 'run_databricks_job',
+          args: { notebookPath: '/Shared/IoT_Telemetry_Ingest', clusterId: 'ondemand-compute-pool' },
         },
         observation: {
-          raw: 'SUCCESS: Laser link locked to orbital station relay. 100% telemetry data transmitted!',
+          raw: 'SUCCESS: Job finished in 34s on On-Demand Pool. 100% IoT telemetry transformed and written to Synapse DB gold_iot_device_telemetry!',
         },
-        reflection: 'Error was recognized and bypassed autonomously.',
+        reflection: 'Pipeline self-healed dynamically without operator intervention.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setEntities((prev) =>
-        prev.map((e) =>
-          e.id === 'laser_relay' ? { ...e, statusText: 'ONLINE & TRANSMITTING: Telemetry Delivered!' } : e
-        )
+        prev.map((e) => {
+          if (e.id === 'databricks_ondemand_pool') return { ...e, statusText: 'ONLINE & COMPLETED: Failover PySpark Job Succeeded!' };
+          if (e.id === 'synapse_target') return { ...e, statusText: 'POPULATED: 100% IoT telemetry loaded into Synapse DB!' };
+          return e;
+        })
       );
       setStepLogs((prev) => [...prev, log]);
     } else if (stepNum >= 3) {
@@ -532,14 +547,14 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m4_s3`,
         stepNumber: stepNum,
         phase: 'SUCCESS',
-        thought: 'Telemetry transmission confirmed by orbital station. Objective completed.',
+        thought: 'Telemetry transmission and Synapse ingestion confirmed. Objective completed.',
         toolCall: {
           toolId: 'verify_goal',
           toolName: 'verify_goal',
-          args: { evidence: 'Weather data relayed via backup laser transceiver.' },
+          args: { evidence: 'Self-healed Spot eviction by dynamically failing over to Databricks on-demand cluster.' },
         },
         observation: {
-          raw: 'ORBITAL STATION: Packet verified and archived.',
+          raw: 'DATA PLATFORM: Pipeline verified, Synapse DB tables populated.',
         },
         reflection: 'The ReAct cycle allows agents to turn errors into new hypotheses and succeed!',
         timestamp: new Date().toLocaleTimeString(),
@@ -550,7 +565,7 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
     }
   };
 
-  // --- MISSION 5 LOGIC: Multi-Agent Swarm Collaboration ---
+  // --- MISSION 5 LOGIC: Multi-Agent Swarm Across All 5 Azure Stacks ---
   const handleMission5Step = () => {
     const stepNum = currentStepIndex + 1;
     setCurrentStepIndex(stepNum);
@@ -563,16 +578,16 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
         thought:
-          'Coordinator Agent: High-level goal requires specialized skills. Delegating Subtask 1 to Scout Agent: Locate probe tumbling trajectory.',
+          'Coordinator Agent: High-level goal requires specialized cloud skills. Delegating Subtask 1 to Security & Storage Agent: Rotate expired SAS token in Azure Key Vault and mount ADLS Gen 2 raw container.',
         toolCall: {
           toolId: 'delegate_subtask',
           toolName: 'delegate_subtask',
-          args: { agentRole: 'Scout', instruction: 'Scan sector Theta and compute orbital pitch/yaw/roll' },
+          args: { agentRole: 'Security & Storage Agent', instruction: 'Rotate SAS token in Key Vault kv-enterprise-prod and verify ADLS Gen 2 mount' },
         },
         observation: {
-          raw: 'Scout Agent Report: "Probe found at Coordinates [X: 412, Y: -89, Z: 104]. Tumbling at 1.4 rad/s on Z-axis."',
+          raw: 'Security Agent Report: "Key Vault secret kv-adls-key rotated. Mounted abfss://raw-landing@adlsfinprod with new HMAC token. 1.2M events pending."',
         },
-        reflection: 'Telemetry acquired. Next delegating bypass calculations to Engineer Agent.',
+        reflection: 'Telemetry acquired from ADLS Gen 2. Next delegating PySpark transformation to Databricks Spark Engineer.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
@@ -583,16 +598,16 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
         thought:
-          'Coordinator Agent: Delegating Subtask 2 to Engineer Agent: Calculate magnetic docking frequency to synchronize with 1.4 rad/s spin.',
+          'Coordinator Agent: Delegating Subtask 2 to Databricks Spark Engineer: Run PySpark Delta Lake merge, schema evolution check, and z-order indexing.',
         toolCall: {
           toolId: 'delegate_subtask',
           toolName: 'delegate_subtask',
-          args: { agentRole: 'Engineer', instruction: 'Calculate pulse resonance for docking clamp synchronization.' },
+          args: { agentRole: 'Databricks Spark Engineer', instruction: 'Execute PySpark Delta MERGE and optimize z-order on Silver IoT table' },
         },
         observation: {
-          raw: 'Engineer Agent Report: "Calculated: Pulse frequency 8.42 MHz will neutralize tumble without damaging solar cells."',
+          raw: 'Spark Engineer Report: "Delta Lake merge finished in 58s. Z-ordering applied on device_id, timestamp. Zero corrupt records in Silver tier."',
         },
-        reflection: 'Docking vector formula ready. Delegating physical maneuver to Pilot Agent.',
+        reflection: 'Silver Delta tables ready. Delegating warehouse publishing to Synapse & ADF Architect.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
@@ -603,21 +618,21 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         stepNumber: stepNum,
         phase: 'EXECUTING_TOOL',
         thought:
-          'Coordinator Agent: Delegating Subtask 3 to Pilot Agent: Execute orbital rendezvous and lock clamp at 8.42 MHz.',
+          'Coordinator Agent: Delegating Subtask 3 to Synapse & ADF Architect: Trigger Azure Data Factory pipeline pl_enterprise_sync and validate Synapse Dedicated SQL Pool.',
         toolCall: {
           toolId: 'delegate_subtask',
           toolName: 'delegate_subtask',
-          args: { agentRole: 'Pilot', instruction: 'Engage thrusters and lock robotic clamp onto Probe X-9.' },
+          args: { agentRole: 'Synapse & ADF Architect', instruction: 'Trigger ADF pipeline pl_enterprise_sync and reconcile row counts in Synapse DB' },
         },
         observation: {
-          raw: 'Pilot Agent Report: "Clamp locked! Tumble arrested. Probe X-9 secured to docking bay."',
+          raw: 'Warehouse Architect Report: "ADF Copy Activity finished. Synapse Dedicated SQL Pool loaded: 1,200,000 rows verified with 100% parity."',
         },
-        reflection: 'All specialist agents performed their delegated sub-tasks successfully.',
+        reflection: 'All specialist agents performed their delegated sub-tasks successfully across all 5 Azure stacks.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setEntities((prev) =>
         prev.map((e) =>
-          e.id === 'probe_status' ? { ...e, statusText: 'SECURED: Docked in mothership bay!' } : e
+          e.id === 'enterprise_mesh' ? { ...e, statusText: 'SYNCHRONIZED: Full Data Mesh pipeline active across Key Vault, ADLS Gen 2, Databricks, ADF & Synapse!' } : e
         )
       );
       setStepLogs((prev) => [...prev, log]);
@@ -627,16 +642,16 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m5_s4`,
         stepNumber: stepNum,
         phase: 'SUCCESS',
-        thought: 'Swarm coordination complete. The stranded research probe is safely retrieved.',
+        thought: 'Enterprise Data Mesh swarm coordination complete. Dataset verified across all 5 cloud technologies.',
         toolCall: {
           toolId: 'verify_goal',
           toolName: 'verify_goal',
-          args: { evidence: 'Scout mapped trajectory, Engineer calculated dampening, Pilot executed docking.' },
+          args: { evidence: 'Coordinated Security Agent (Key Vault + ADLS), Spark Engineer (Databricks), and Architect (ADF + Synapse DB).' },
         },
         observation: {
-          raw: 'SWARM STATUS: 100% Mission Accomplished.',
+          raw: 'ENTERPRISE DATA MESH STATUS: 100% Operational & Reconciled.',
         },
-        reflection: 'Specialization and message passing enables agents to solve massive, complex problems.',
+        reflection: 'Specialization and message passing across Azure services enables agents to solve massive enterprise problems.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, log]);
@@ -654,12 +669,12 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
         id: `m3_reject`,
         stepNumber: currentStepIndex,
         phase: 'OBSERVING',
-        thought: 'Human supervisor explicitly REJECTED the command to delete customer transaction database backup.',
+        thought: 'Human supervisor explicitly REJECTED the command to execute DROP TABLE on Synapse DB.',
         observation: {
-          raw: 'SUPERVISOR INTERVENTION: "REJECTED: Deleting customer backups is prohibited. Find a non-destructive way to free disk space."',
+          raw: 'SUPERVISOR INTERVENTION: "REJECTED: Dropping Synapse historical compliance tables is prohibited. Find a non-destructive storage optimization in ADLS Gen 2 staging."',
           isError: true,
         },
-        reflection: 'I must self-correct and seek non-critical files (such as old application logs) instead.',
+        reflection: 'I must self-correct and seek non-critical staging partitions in ADLS Gen 2 instead.',
         timestamp: new Date().toLocaleTimeString(),
       };
       setStepLogs((prev) => [...prev, rejectLog]);
@@ -671,7 +686,7 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
       setCurrentPhase('FAILED');
       setIsRunning(false);
       setMissionFailed(
-        'You approved deleting the customer backup archive! The production database was wiped. This proves why Human-in-the-Loop oversight is critical!'
+        'Catastrophe! You approved running DROP TABLE on Synapse DB! 7 years of regulatory financial records were deleted. This illustrates why Human-in-the-Loop guardrails and authorization policies are critical in enterprise cloud data operations.'
       );
     }
   };
@@ -771,6 +786,11 @@ export const MissionView: React.FC<MissionViewProps> = ({ onUnlockBadge }) => {
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="font-semibold text-xs flex items-center gap-1.5 text-[#2D2926]">
                       {ent.type === 'door' && (ent.isLocked ? <Lock className="w-3.5 h-3.5 text-[#D4A373]" /> : <Unlock className="w-3.5 h-3.5 text-[#8DA08E]" />)}
+                      {ent.type === 'vault' && <Key className="w-3.5 h-3.5 text-[#D4A373]" />}
+                      {ent.type === 'storage' && (ent.isLocked ? <Lock className="w-3.5 h-3.5 text-[#D4A373]" /> : <HardDrive className="w-3.5 h-3.5 text-[#8DA08E]" />)}
+                      {ent.type === 'database' && <Database className="w-3.5 h-3.5 text-[#8DA08E]" />}
+                      {ent.type === 'pipeline' && <Workflow className="w-3.5 h-3.5 text-[#D4A373]" />}
+                      {ent.type === 'cluster' && <Cpu className="w-3.5 h-3.5 text-[#D4A373]" />}
                       {ent.type === 'terminal' && <Terminal className="w-3.5 h-3.5 text-[#8DA08E]" />}
                       {ent.type === 'sensor' && <Cpu className="w-3.5 h-3.5 text-[#D4A373]" />}
                       {ent.name}

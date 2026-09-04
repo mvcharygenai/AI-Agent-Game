@@ -65,7 +65,7 @@ export interface AgentBrainConfig {
 export interface EnvironmentEntity {
   id: string;
   name: string;
-  type: 'object' | 'door' | 'terminal' | 'person' | 'chest' | 'sensor' | 'drone';
+  type: 'object' | 'door' | 'terminal' | 'person' | 'chest' | 'sensor' | 'drone' | 'storage' | 'database' | 'pipeline' | 'cluster' | 'vault';
   statusText: string;
   isLocked?: boolean;
   secretData?: string;
