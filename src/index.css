@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+  code, pre {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Custom glow effects and node animations in natural sage tones */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(141, 160, 142, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(141, 160, 142, 0.65);
+  }
+}
+
+.agent-glow {
+  animation: pulse-glow 2.5s infinite ease-in-out;
+}
+
+/* Custom sleek scrollbar with warm natural linen tones */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F5F1E9;
+}
+::-webkit-scrollbar-thumb {
+  background: #D5CCC0;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A69F92;
+}

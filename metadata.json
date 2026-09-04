@@ -1,0 +1,6 @@
+{
+  "name": "AI Agent Game",
+  "description": "An interactive game and simulator designed to help anyone understand how AI agents work through goals, perception, reasoning, memory, and tools.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
